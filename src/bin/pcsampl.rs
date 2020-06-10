@@ -12,7 +12,7 @@ use failure::bail;
 use itm::{Packet, Stream};
 use xmas_elf::{
     sections::SectionData,
-    symbol_table::{Entry, Type},
+    symbol_table::{Entry, Binding, Type},
     ElfFile,
 };
 
@@ -58,7 +58,7 @@ fn run() -> Result<(), failure::Error> {
         match section.get_data(&elf).map_err(failure::err_msg)? {
             SectionData::SymbolTable32(entries) => {
                 for entry in entries {
-                    if entry.get_type() == Ok(Type::Func) {
+                    if entry.get_binding() == Ok(Binding::Global) || entry.get_type() == Ok(Type::Func) {
                         let name = entry.get_name(&elf).map_err(failure::err_msg)?;
                         // clear the thumb (T) bit
                         let address = entry.value() & !1;
@@ -104,10 +104,7 @@ fn run() -> Result<(), failure::Error> {
 
             let hit = &routines[pos];
             if pc > hit.address + hit.size {
-                // bogus value; ignore
-                eprintln!("bogus PC ({:#010x})", pc);
-                total -= 1;
-                continue;
+                eprintln!("bogus PC ({:#010x}) -- assuming {}", pc, hit.name);
             }
 
             *stats.entry(hit.name).or_insert(0) += 1;
